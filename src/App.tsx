@@ -13,7 +13,7 @@ const seedLeads:Lead[]=[{id:1,name:'The Good Habit',company:'Wellness / D2C',val
 const load=<T,>(k:string,f:T):T=>{try{const v=window.localStorage.getItem(k);return v?JSON.parse(v) as T:f}catch{return f}};
 const persistLocal=(key:string,value:unknown)=>{try{window.localStorage.setItem(key,JSON.stringify(value));return true}catch{return false}};
 const money=(n:number)=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n);
-const nav=[{label:'Workspace',items:[['Overview',LayoutDashboard],['Projects',FolderKanban],['Clients',Users],['Tasks',CheckCircle2],['Pipeline',Target]]},{label:'Management',items:[['Calendar',CalendarDays],['Finance',CreditCard],['Automation',Workflow],['Settings',Settings]]}] as const;
+const nav=[{label:'Workspace',items:[['Overview',LayoutDashboard],['Projects',FolderKanban],['Clients',Users],['Tasks',CheckCircle2],['Pipeline',Target]]},{label:'Management',items:[['Calendar',CalendarDays],['Finance',CreditCard],['Automation',Workflow],['Settings',Settings],['Team & Access',Users]]}] as const;
 
 type WorkspaceOption={id:string;name:string;slug:string;role:string};
 type AppProps={organizationId?:string;userId?:string;role?:string;userEmail?:string;workspaceName?:string;workspaces?:WorkspaceOption[];onWorkspaceChange?:(workspace:WorkspaceOption)=>void;onSignOut?:()=>void};
@@ -87,7 +87,7 @@ export default function App({organizationId,userId,role='owner',userEmail,worksp
      toast(editing?'Changes saved':'Record created');setModal('');setEditing(null);
    }catch(err){toast(err instanceof Error?err.message:'Could not save record.')}finally{setSaving(false)}
  };
- const titles:Record<string,string>={Overview:'Command center',Projects:'Project workspace',Clients:'Client relationships',Tasks:'Tasks & delivery',Pipeline:'Growth pipeline',Calendar:'Calendar',Finance:'Finance overview',Automation:'Automation studio',Settings:'Workspace settings'};
+ const titles:Record<string,string>={Overview:'Command center',Projects:'Project workspace',Clients:'Client relationships',Tasks:'Tasks & delivery',Pipeline:'Growth pipeline',Calendar:'Calendar',Finance:'Finance overview',Automation:'Automation studio',Settings:'Workspace settings','Team & Access':'Team & access'};
  const filteredProjects=projects.filter(p=>(p.name+p.client+p.service).toLowerCase().includes(query.toLowerCase()));
  const filteredClients=clients.filter(p=>(p.name+p.company+p.email).toLowerCase().includes(query.toLowerCase()));
  const filteredTasks=tasks.filter(t=>(t.title+t.project+t.priority).toLowerCase().includes(query.toLowerCase()));
@@ -113,7 +113,9 @@ export default function App({organizationId,userId,role='owner',userEmail,worksp
  {active==='Clients'&&<section className="panel tablepanel"><PanelHead title="Client directory" sub="Relationships are the foundation of good work." action={()=>isInternal?open('client'):setActive('Overview')}/><div className="tablewrap"><table><thead><tr><th>Contact</th><th>Company</th><th>Email</th><th>Actions</th></tr></thead><tbody>{filteredClients.map(c=><tr key={c.id}><td><b>{c.name}</b></td><td>{c.company}</td><td>{c.email}</td><td>{isInternal&&<div className="rowactions"><button className="icon mini" title="Edit client" onClick={()=>edit('client',c)}><Pencil size={13}/></button>{canDeleteAdmin&&<button className="icon mini danger" title="Delete client" onClick={()=>void remove('client',c)}><Trash2 size={13}/></button>}</div>}</td></tr>)}</tbody></table></div></section>}
  {active==='Tasks'&&<section className="panel tablepanel"><PanelHead title="Delivery board" sub="Clear ownership, realistic deadlines, fewer dropped details." action={()=>isInternal?open('task'):setActive('Overview')}/>{filteredTasks.map(t=><div className="taskrow wide" key={t.id}><button className={`check ${t.done?'done':''}`} disabled={!isInternal} onClick={()=>void toggleTask(t)}>{t.done&&<Check size={12}/>}</button><div className="tasktext"><b>{t.title}</b><small>{t.project}</small></div><div className="taskmeta"><span className={t.priority.toLowerCase()}>{t.priority}</span><small>{formatDate(t.due)}</small></div>{isInternal&&<div className="rowactions"><button className="icon mini" title="Edit task" onClick={()=>edit('task',t)}><Pencil size={13}/></button>{canDeleteTask&&<button className="icon mini danger" title="Delete task" onClick={()=>void remove('task',t)}><Trash2 size={13}/></button>}</div>}</div>)}</section>}
  {active==='Pipeline'&&isInternal&&<div className="pipelinepage"><div className="secthead"><div><h3>Opportunity board</h3><p>Track the next relationship, not just the next transaction.</p></div><button className="primary" onClick={()=>open('lead')}><Plus size={15}/>Add lead</button></div><div className="board">{['New lead','Discovery','Qualified','Proposal','Won','Lost'].map(s=><section className="column" key={s}><header>{s}<b>{leads.filter(l=>l.stage===s).length}</b></header>{filteredLeads.filter(l=>l.stage===s).map(l=><article className="leadcard" key={l.id}><b>{l.name}</b><small>{l.company}</small><strong>{money(l.value)}</strong><div className="rowactions"><button className="icon mini" title="Edit lead" onClick={()=>edit('lead',l)}><Pencil size={13}/></button>{canDeleteAdmin&&<button className="icon mini danger" title="Delete lead" onClick={()=>void remove('lead',l)}><Trash2 size={13}/></button>}<select aria-label="Lead stage" value={l.stage} onChange={async e=>{const stage=e.target.value;if(cloudMode&&supabase){const {error}=await supabase.from('leads').update({stage:stageToDb(stage)}).eq('id',l.id).eq('organization_id',organizationId!);if(error){toast(error.message);return}}setLeads(a=>a.map(x=>x.id===l.id?{...x,stage}:x))}}>{['New lead','Discovery','Qualified','Proposal','Won','Lost'].map(v=><option key={v}>{v}</option>)}</select></div></article>)}</section>)}</div></div>}
- {active==='Automation'&&isInternal&&<AutomationModule organizationId={organizationId} userId={userId} role={role} toast={toast}/>}
+ {active==='Team & Access'&&isInternal&&cloudMode&&<TeamAccessModule organizationId={organizationId!} userId={userId!} role={role} clients={clients} toast={toast}/>}
+  {active==='Team & Access'&&(!isInternal||!cloudMode)&&<section className="panel"><PanelHead title="Team & access" sub="Sign in to a connected workspace with owner or admin access to invite members."/></section>}
+  {active==='Automation'&&isInternal&&<AutomationModule organizationId={organizationId} userId={userId} role={role} toast={toast}/>}
  {active==='Calendar'&&<CalendarModule organizationId={organizationId} userId={userId} role={role} clients={clients} projects={projects} toast={toast}/>}
  {active==='Finance'&&<FinanceModule organizationId={organizationId} userId={userId} role={role} clients={clients} toast={toast}/>}
  {active==='Settings'&&<SettingsModule organizationId={organizationId} role={role} toast={toast}/>}
@@ -183,4 +185,32 @@ function AutomationModule({organizationId,userId,role,toast}:ModuleProps){
  useEffect(()=>{void loadRules()},[loadRules]);
  async function toggle(rule:any){if(!canManage)return;const enabled=!rule.is_enabled;if(cloud&&supabase){const {error}=await supabase.from('automation_rules').update({is_enabled:enabled}).eq('id',rule.id).eq('organization_id',organizationId!);if(error){setError(error.message);return}}setRules(v=>v.map(r=>r.id===rule.id?{...r,is_enabled:enabled}:r));toast(enabled?'Rule enabled':'Rule disabled')}
  return <div className="autopage"><section className="hero smallhero"><div><div className="eyebrow lime"><Workflow size={14}/> WORKFLOW CONFIGURATION</div><h2>Make repeatable work <em>consistent.</em></h2><p>Store and manage automation rule settings for this workspace.</p></div></section><ModulePanel title="Automation rules" sub="These rules are saved as configuration. Event execution and email delivery require a separate worker or scheduled function.">{error&&<p className="moduleerror" role="alert">{error}</p>}{busy&&<p className="modulehint">Syncing automation rules…</p>}{rules.map(r=><div className="autorow" key={r.event_key}><div className="autoicon"><Workflow size={17}/></div><div><b>{r.name}</b><p>{r.description}</p><small>{r.event_key.replaceAll('_',' ')}</small></div><button aria-label={`${r.is_enabled?'Disable':'Enable'} ${r.name}`} disabled={!canManage||busy} className={`toggle ${r.is_enabled?'on':''}`} onClick={()=>void toggle(r)}><i/></button></div>)}<p className="modulehint">{cloud?'Rule configuration syncs to Supabase.':'Demo mode: rule changes are local until Supabase is configured.'} Only owners, admins and managers can change rules.</p></ModulePanel></div>
+}
+
+
+function TeamAccessModule({organizationId,userId,role,clients,toast}:{organizationId:string;userId:string;role:string;clients:Client[];toast:(s:string)=>void}){
+ const [email,setEmail]=useState(''),[inviteRole,setInviteRole]=useState('member'),[clientId,setClientId]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[inviteUrl,setInviteUrl]=useState('');
+ const canInvite=role==='owner'||role==='admin';
+ async function createInvite(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();if(!supabase||!canInvite)return;
+  setBusy(true);setError('');setInviteUrl('');
+  const result=await supabase.rpc('create_workspace_invitation',{p_organization_id:organizationId,p_email:email.trim().toLowerCase(),p_role:inviteRole,p_client_id:inviteRole==='client'?clientId:null});
+  setBusy(false);
+  if(result.error){setError(result.error.message);return}
+  const data:any=result.data;const token=Array.isArray(data)?data[0]?.invitation_token:data?.invitation_token;
+  if(!token){setError('Invitation created but no invitation token was returned.');return}
+  const url=new URL(window.location.origin+window.location.pathname);url.searchParams.set('invite',String(token));
+  setInviteUrl(url.toString());toast('Invitation link created. Share it with the invited person.');
+ }
+ return <section className="panel team-access"><PanelHead title="Invite your team" sub="Add people to this workspace without creating separate login systems."/>
+ {!canInvite?<div className="auth-footnote">Only workspace owners and admins can invite members.</div>:<form className="team-invite-form" onSubmit={createInvite}>
+  <label className="auth-field"><span>Member email</span><input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="teammate@company.com"/></label>
+  <label className="auth-field"><span>Access role</span><select value={inviteRole} onChange={e=>setInviteRole(e.target.value)}><option value="member">Staff / Member</option><option value="manager">Manager</option><option value="admin">Admin</option><option value="client">Client</option></select></label>
+  {inviteRole==='client'&&<label className="auth-field"><span>Link to client record</span><select value={clientId} onChange={e=>setClientId(e.target.value)} required><option value="">Choose client</option>{clients.map(c=><option key={c.id} value={String(c.id)}>{c.company} — {c.name}</option>)}</select></label>}
+  {error&&<div className="auth-error" role="alert">{error}</div>}
+  <button className="primary" type="submit" disabled={busy}>{busy?'Creating invite…':'Create invitation link'}</button>
+  {inviteUrl&&<div className="invite-link-result"><b>Share this secure link</b><p>It expires in 7 days and only works for {email.trim().toLowerCase()}. Ask the recipient to sign in or create an account with that exact email.</p><input readOnly value={inviteUrl} aria-label="Invitation link"/><button className="primary" type="button" onClick={()=>{void navigator.clipboard.writeText(inviteUrl).then(()=>toast('Invitation link copied')).catch(()=>setError('Copy failed. Select and copy the link manually.'))}}>Copy invitation link</button></div>}
+ </form>}
+ <div className="auth-footnote">Invitations are email-bound, expire after seven days, and assign access only after the invited person signs in with the matching email. This creates a shareable link; automatic email delivery is not configured yet.</div>
+ </section>
 }
