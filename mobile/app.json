@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Parallel Seven",
+    "slug": "parallel-seven-agency-os",
+    "scheme": "parallelseven",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}
