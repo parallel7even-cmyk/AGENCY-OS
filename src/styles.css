@@ -99,3 +99,8 @@ body{background:radial-gradient(ellipse at 78% -10%,#ff32171c,transparent 34%),r
 .avatar-trigger:hover{box-shadow:0 0 0 3px #ff321726}
 .shell[data-accent="violet"] .avatar-trigger:hover{box-shadow:0 0 0 3px #a78bfa26}
 @media(max-width:700px){.topactions{gap:7px}.brand-theme{font-size:8px}.theme-menu{right:-30px}.profile-menu{min-width:220px}}
+
+/* Keep the top-bar account dropdown anchored to the avatar, not the sidebar. */
+.top-profile-wrap{position:relative;display:flex;align-items:center}
+.top-profile-menu{right:0;top:calc(100% + 10px);width:270px}
+@media(max-width:560px){.top-profile-menu{right:-2px;width:min(270px,calc(100vw - 28px));min-width:0}.top-profile-menu .profile-summary b{overflow-wrap:anywhere}}
