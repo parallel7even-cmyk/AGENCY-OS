@@ -13,7 +13,6 @@ export default function AuthShell() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [recoverySession, setRecoverySession] = useState(false)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
@@ -27,7 +26,7 @@ export default function AuthShell() {
       setReady(true)
     })
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (event === 'PASSWORD_RECOVERY') { setRecoverySession(true); setMode('update-password') }
+      if (event === 'PASSWORD_RECOVERY') setMode('update-password')
       setSession(nextSession)
       if (!nextSession) { setWorkspaces([]); setWorkspaceReady(false); setSelectedWorkspace(null) }
     })
@@ -61,7 +60,7 @@ export default function AuthShell() {
 
   if (!isSupabaseConfigured || !supabase) return import.meta.env.PROD ? <ConfigurationRequired /> : <App />
   if (!ready) return <div className="auth-screen"><div className="auth-card">Loading secure session…</div></div>
-  if (!session || mode === 'update-password') return <AuthForm mode={mode} setMode={setMode} busy={busy} setBusy={setBusy} error={error} setError={setError} message={message} setMessage={setMessage} recoverySession={recoverySession} />
+  if (!session || mode === 'update-password') return <AuthForm mode={mode} setMode={setMode} busy={busy} setBusy={setBusy} error={error} setError={setError} message={message} setMessage={setMessage} />
   if (!workspaceReady) return <div className="auth-screen"><div className="auth-card">Loading your workspaces…</div></div>
   if (!selectedWorkspace) return <WorkspacePicker workspaces={workspaces} workspaceName={workspaceName} setWorkspaceName={setWorkspaceName} busy={busy} setBusy={setBusy} error={error} setError={setError} onSelect={setSelectedWorkspace} />
 
@@ -72,9 +71,9 @@ function ConfigurationRequired() {
   return <div className="auth-screen"><section className="auth-card" role="alert"><div className="auth-brand"><div className="auth-mark">P<span>7</span></div><div><b>PARALLEL SEVEN</b><small>AGENCY OPERATING SYSTEM</small></div></div><h1>Workspace configuration required.</h1><p>This deployment is missing its Supabase environment variables. For safety, demo data is disabled in production.</p><p className="auth-footnote">Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in your hosting provider, then redeploy.</p></section></div>
 }
 
-function AuthForm({ mode, setMode, busy, setBusy, error, setError, message, setMessage, recoverySession }: {
+function AuthForm({ mode, setMode, busy, setBusy, error, setError, message, setMessage }: {
   mode: 'signin' | 'signup' | 'reset' | 'update-password'; setMode: (mode: 'signin' | 'signup' | 'reset' | 'update-password') => void; busy: boolean; setBusy: (value: boolean) => void;
-  error: string; setError: (value: string) => void; message: string; setMessage: (value: string) => void; recoverySession: boolean;
+  error: string; setError: (value: string) => void; message: string; setMessage: (value: string) => void;
 }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -101,7 +100,7 @@ function AuthForm({ mode, setMode, busy, setBusy, error, setError, message, setM
       } else {
         const { error: updateError } = await supabase.auth.updateUser({ password })
         resultError = updateError?.message ?? null
-        if (!resultError) { setMessage('Password updated. You can continue with your account.'); setRecoverySession(false); setMode('signin'); await supabase.auth.signOut() }
+        if (!resultError) { setMessage('Password updated. You can continue with your account.'); setMode('signin'); await supabase.auth.signOut() }
       }
     } catch (cause) {
       resultError = cause instanceof Error ? cause.message : 'Authentication failed. Please try again.'
@@ -124,7 +123,7 @@ function AuthForm({ mode, setMode, busy, setBusy, error, setError, message, setM
     <button className="auth-submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Update password'} <ArrowRight size={16}/></button>
     {mode === 'signin' && <button className="auth-switch" type="button" onClick={() => { setMode('reset'); setError(''); setMessage('') }}>Forgot password?</button>}
     {mode !== 'update-password' && <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); setMessage('') }}>{mode === 'signup' ? 'Already have an account? Sign in' : 'New to Parallel Seven? Create an account'}</button>}
-    {mode === 'update-password' && <button className="auth-switch" type="button" onClick={() => { setMode('signin'); setRecoverySession(false); setError(''); setMessage('') }}>Back to sign in</button>}
+    {mode === 'update-password' && <button className="auth-switch" type="button" onClick={() => { setMode('signin');  setError(''); setMessage('') }}>Back to sign in</button>}
     {mode === 'reset' && <button className="auth-switch" type="button" onClick={() => { setMode('signin'); setError(''); setMessage('') }}>Back to sign in</button>}
     <div className="auth-footnote">Use the same email for owner, staff, and client access. Your workspace memberships determine what you can see. New team members should accept an invitation using the invited email address.</div>
   </form></div>
