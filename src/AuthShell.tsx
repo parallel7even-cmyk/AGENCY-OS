@@ -61,7 +61,7 @@ export default function AuthShell() {
   if (!workspaceReady) return <div className="auth-screen"><div className="auth-card">Loading your workspaces…</div></div>
   if (!selectedWorkspace) return <WorkspacePicker workspaces={workspaces} workspaceName={workspaceName} setWorkspaceName={setWorkspaceName} busy={busy} setBusy={setBusy} error={error} setError={setError} onSelect={setSelectedWorkspace} />
 
-  return <><div className="auth-session-bar"><span><ShieldCheck size={15}/> {selectedWorkspace.name} · {session.user.email} <b>Cloud data · workspace isolated</b></span><button onClick={() => { void supabase!.auth.signOut() }}><LogOut size={14}/> Sign out</button></div><App organizationId={selectedWorkspace.id} userId={session.user.id} role={selectedWorkspace.role} /></>
+  return <><div className="auth-session-bar"><span><ShieldCheck size={15}/> {selectedWorkspace.name} · {session.user.email} <b>Cloud data · workspace isolated</b></span><button onClick={() => { void supabase!.auth.signOut() }}><LogOut size={14}/> Sign out</button></div><App organizationId={selectedWorkspace.id} userId={session.user.id} role={selectedWorkspace.role} userEmail={session.user.email ?? undefined} workspaceName={selectedWorkspace.name} /></>
 }
 
 function ConfigurationRequired() {
