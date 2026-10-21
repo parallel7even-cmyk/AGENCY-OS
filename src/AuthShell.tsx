@@ -9,10 +9,11 @@ type Workspace = { id: string; name: string; slug: string; role: string }
 export default function AuthShell() {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(!isSupabaseConfigured)
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset' | 'update-password'>('signin')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [recoverySession, setRecoverySession] = useState(false)
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const [workspaceName, setWorkspaceName] = useState('')
@@ -25,7 +26,8 @@ export default function AuthShell() {
       setSession(data.session)
       setReady(true)
     })
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === 'PASSWORD_RECOVERY') { setRecoverySession(true); setMode('update-password') }
       setSession(nextSession)
       if (!nextSession) { setWorkspaces([]); setWorkspaceReady(false); setSelectedWorkspace(null) }
     })
@@ -48,7 +50,9 @@ export default function AuthShell() {
       if (cancelled) return
       if (orgError) setError(orgError.message)
       const roles = new Map((memberships ?? []).map(item => [item.organization_id, item.role]))
-      setWorkspaces((organizations ?? []).map(org => ({ ...org, role: String(roles.get(org.id) ?? 'member') })))
+      const available = (organizations ?? []).map(org => ({ ...org, role: String(roles.get(org.id) ?? 'member') }))
+      setWorkspaces(available)
+      if (available.length === 1) setSelectedWorkspace(current => current ?? available[0])
       setWorkspaceReady(true)
     }
     void loadWorkspaces()
@@ -57,7 +61,7 @@ export default function AuthShell() {
 
   if (!isSupabaseConfigured || !supabase) return import.meta.env.PROD ? <ConfigurationRequired /> : <App />
   if (!ready) return <div className="auth-screen"><div className="auth-card">Loading secure session…</div></div>
-  if (!session) return <AuthForm mode={mode} setMode={setMode} busy={busy} setBusy={setBusy} error={error} setError={setError} message={message} setMessage={setMessage} />
+  if (!session || mode === 'update-password') return <AuthForm mode={mode} setMode={setMode} busy={busy} setBusy={setBusy} error={error} setError={setError} message={message} setMessage={setMessage} recoverySession={recoverySession} />
   if (!workspaceReady) return <div className="auth-screen"><div className="auth-card">Loading your workspaces…</div></div>
   if (!selectedWorkspace) return <WorkspacePicker workspaces={workspaces} workspaceName={workspaceName} setWorkspaceName={setWorkspaceName} busy={busy} setBusy={setBusy} error={error} setError={setError} onSelect={setSelectedWorkspace} />
 
@@ -68,37 +72,61 @@ function ConfigurationRequired() {
   return <div className="auth-screen"><section className="auth-card" role="alert"><div className="auth-brand"><div className="auth-mark">P<span>7</span></div><div><b>PARALLEL SEVEN</b><small>AGENCY OPERATING SYSTEM</small></div></div><h1>Workspace configuration required.</h1><p>This deployment is missing its Supabase environment variables. For safety, demo data is disabled in production.</p><p className="auth-footnote">Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in your hosting provider, then redeploy.</p></section></div>
 }
 
-function AuthForm({ mode, setMode, busy, setBusy, error, setError, message, setMessage }: {
-  mode: 'signin' | 'signup'; setMode: (mode: 'signin' | 'signup') => void; busy: boolean; setBusy: (value: boolean) => void;
-  error: string; setError: (value: string) => void; message: string; setMessage: (value: string) => void;
+function AuthForm({ mode, setMode, busy, setBusy, error, setError, message, setMessage, recoverySession }: {
+  mode: 'signin' | 'signup' | 'reset' | 'update-password'; setMode: (mode: 'signin' | 'signup' | 'reset' | 'update-password') => void; busy: boolean; setBusy: (value: boolean) => void;
+  error: string; setError: (value: string) => void; message: string; setMessage: (value: string) => void; recoverySession: boolean;
 }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!supabase) return
     setBusy(true); setError(''); setMessage('')
     const form = new FormData(event.currentTarget)
-    const email = String(form.get('email') || '').trim()
+    const email = String(form.get('email') || '').trim().toLowerCase()
     const password = String(form.get('password') || '')
     const displayName = String(form.get('displayName') || '').trim()
-    const result = mode === 'signin'
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName } } })
-    setBusy(false)
-    if (result.error) setError(result.error.message)
-    else if (mode === 'signup' && !result.data.session) setMessage('Check your email to confirm your account, then sign in.')
-    else setMessage(mode === 'signup' ? 'Account created.' : 'Signed in.')
+    let resultError: string | null = null
+    try {
+      if (mode === 'signin') {
+        const result = await supabase.auth.signInWithPassword({ email, password })
+        resultError = result.error?.message ?? null
+      } else if (mode === 'signup') {
+        const result = await supabase.auth.signUp({ email, password, options: { data: { display_name: displayName } } })
+        resultError = result.error?.message ?? null
+        if (!resultError && !result.data.session) setMessage('Account created. Check your email to confirm it, then return here to sign in. If you were invited to a workspace, use the same email address that received the invitation.')
+        else if (!resultError) setMessage('Account created. Loading your workspace access…')
+      } else if (mode === 'reset') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+        resultError = resetError?.message ?? null
+        if (!resultError) setMessage('If an account exists for that email, a password-reset link will be sent. Open the link on this site to choose a new password.')
+      } else {
+        const { error: updateError } = await supabase.auth.updateUser({ password })
+        resultError = updateError?.message ?? null
+        if (!resultError) { setMessage('Password updated. You can continue with your account.'); setRecoverySession(false); setMode('signin'); await supabase.auth.signOut() }
+      }
+    } catch (cause) {
+      resultError = cause instanceof Error ? cause.message : 'Authentication failed. Please try again.'
+    } finally {
+      setBusy(false)
+    }
+    if (resultError) setError(resultError)
+    else if (mode === 'signin') setMessage('Signed in. Checking your workspace access…')
   }
+  const title = mode === 'signin' ? 'Welcome back.' : mode === 'signup' ? 'Create your account.' : mode === 'reset' ? 'Reset your password.' : 'Choose a new password.'
+  const description = mode === 'signin' ? 'One secure sign-in for your agency, team, and client access.' : mode === 'signup' ? 'Create one account to access workspaces you own or are invited to.' : mode === 'reset' ? 'Enter your account email and we will send a secure reset link if it exists.' : 'Set a new password for your Parallel Seven account.'
   return <div className="auth-screen"><form className="auth-card" onSubmit={submit}>
     <div className="auth-brand"><div className="auth-mark">P<span>7</span></div><div><b>PARALLEL SEVEN</b><small>AGENCY OPERATING SYSTEM</small></div></div>
-    <div className="auth-eyebrow"><LockKeyhole size={14}/> SECURE WORKSPACE ACCESS</div>
-    <h1>{mode === 'signin' ? 'Welcome back.' : 'Create your account.'}</h1><p>Access your agency workspace with a verified account.</p>
+    <div className="auth-eyebrow"><LockKeyhole size={14}/> ONE SECURE ACCOUNT · ALL WORKSPACES</div>
+    <h1>{title}</h1><p>{description}</p>
     {mode === 'signup' && <label className="auth-field"><span>Your name</span><input name="displayName" autoComplete="name" required placeholder="Full name"/></label>}
-    <label className="auth-field"><span>Email address</span><input name="email" type="email" autoComplete="email" required placeholder="you@company.com"/></label>
-    <label className="auth-field"><span>Password</span><input name="password" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required placeholder="At least 8 characters"/></label>
+    {mode !== 'update-password' && <label className="auth-field"><span>Email address</span><input name="email" type="email" autoComplete="email" required placeholder="you@company.com"/></label>}
+    {mode !== 'reset' && <label className="auth-field"><span>{mode === 'update-password' ? 'New password' : 'Password'}</span><input name="password" type="password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} minLength={8} required placeholder="At least 8 characters"/></label>}
     {error && <div className="auth-error" role="alert">{error}</div>}{message && <div className="auth-message" role="status">{message}</div>}
-    <button className="auth-submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'} <ArrowRight size={16}/></button>
-    <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); setMessage('') }}>{mode === 'signin' ? 'New to Parallel Seven? Create an account' : 'Already have an account? Sign in'}</button>
-    <div className="auth-footnote">Sign-up creates a user account. A workspace owner must invite team members and client users after workspace setup.</div>
+    <button className="auth-submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Update password'} <ArrowRight size={16}/></button>
+    {mode === 'signin' && <button className="auth-switch" type="button" onClick={() => { setMode('reset'); setError(''); setMessage('') }}>Forgot password?</button>}
+    {mode !== 'update-password' && <button className="auth-switch" type="button" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); setMessage('') }}>{mode === 'signup' ? 'Already have an account? Sign in' : 'New to Parallel Seven? Create an account'}</button>}
+    {mode === 'update-password' && <button className="auth-switch" type="button" onClick={() => { setMode('signin'); setRecoverySession(false); setError(''); setMessage('') }}>Back to sign in</button>}
+    {mode === 'reset' && <button className="auth-switch" type="button" onClick={() => { setMode('signin'); setError(''); setMessage('') }}>Back to sign in</button>}
+    <div className="auth-footnote">Use the same email for owner, staff, and client access. Your workspace memberships determine what you can see. New team members should accept an invitation using the invited email address.</div>
   </form></div>
 }
 
