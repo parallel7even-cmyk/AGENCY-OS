@@ -1,6 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import {supabase} from './lib/supabase';
-import {Activity,ArrowUpRight,Bell,Check,CheckCircle2,ChevronDown,Clock3,FolderKanban,LayoutDashboard,Menu,Plus,Search,Settings,Target,Users,Workflow,X,CalendarDays,CreditCard,Sparkles,Pencil,Trash2,RefreshCw,Cloud,HardDrive,LogOut,Palette,Building2,UserRound} from 'lucide-react';
+import {Activity,ArrowUpRight,Bell,Check,CheckCircle2,ChevronDown,Clock3,FolderKanban,LayoutDashboard,Menu,Plus,Search,Settings,Target,Users,Workflow,X,CalendarDays,CreditCard,Sparkles,Pencil,Trash2,RefreshCw,Cloud,HardDrive,LogOut,UserRound} from 'lucide-react';
 
 type Project={id:string|number;name:string;client:string;service:string;status:string;progress:number;due:string};
 type Client={id:string|number;name:string;company:string;email:string};
