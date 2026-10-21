@@ -80,7 +80,7 @@ body{background:radial-gradient(ellipse at 78% -10%,#ff32171c,transparent 34%),r
 .control-menu{position:absolute;z-index:80;min-width:220px;padding:8px;border:1px solid #343744;border-radius:10px;background:#191b25;box-shadow:0 18px 48px #0008;color:#e9eaf0}
 .workspace-menu{top:calc(100% + 7px);left:0;width:100%;min-width:240px}
 .theme-menu{right:0;top:calc(100% + 9px);min-width:220px}
-.profile-menu{left:0;bottom:calc(100% + 8px);width:100%;min-width:240px}
+.sidebottom{position:relative}.profile-menu{left:0;bottom:55px;width:100%;min-width:240px}
 .menu-heading{display:block;padding:7px 9px 9px;color:#8e92a3;font:10px 'DM Mono';letter-spacing:.08em;text-transform:uppercase}
 .menu-choice{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;border-radius:7px;background:transparent;color:#e9eaf0;text-align:left;padding:10px 9px}
 .menu-choice:hover,.menu-choice.current{background:#252833}
